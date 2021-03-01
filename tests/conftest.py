@@ -9,7 +9,7 @@ from pathlib import Path
 # from okama.plots import Plots
 
 
-data_folder = Path.cwd() / 'data'
+data_folder = Path().resolve() / 'tests' / 'data'
 
 
 @pytest.fixture(scope='class')
