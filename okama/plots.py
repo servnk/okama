@@ -9,10 +9,128 @@ from .frontier.single_period import EfficientFrontier
 from .settings import default_ticker
 
 
+class AssetPlot:
+    """
+    tools to plot Efficient Frontier, Assets and Transition map.
+    """
+
+    def __init__(self):
+        self.plt = plt
+        self.plt.rcParams['figure.figsize'] = [12.0, 6.0]
+        self.plt.autoscale(enable=True, axis='year', tight=False)
+        self.ax = self.plt.gca()
+
+    def _get_risk_return(self,
+                         data_source: Union[AssetList, EfficientFrontier],
+                         kind: str = 'mean'):
+        if kind == 'mean':
+            risks = data_source.risk_annual
+            returns = Float.annualize_return(data_source.ror.mean())
+        elif kind == 'cagr':
+            risks = data_source.risk_annual
+            returns = data_source.get_cagr().loc[data_source.symbols]
+        if len(data_source.symbols) < 2:
+            risks = [risks]
+            returns = [returns]
+        return risks, returns
+
+    def _get_plot_lables(self,
+                         data_source: Union[AssetList, EfficientFrontier],
+                         tickers: Union[str, list] = 'tickers'
+                         ):
+        # Set the labels
+        if tickers == 'tickers':
+            asset_labels = data_source.symbols
+        elif tickers == 'names':
+            asset_labels = list(data_source.names.values())
+        else:
+            if not isinstance(tickers, list):
+                raise ValueError(f'tickers parameter should be a list of string labels.')
+            if len(tickers) != len(data_source.symbols):
+                raise ValueError('labels and tickers must be of the same length')
+            asset_labels = tickers
+        return asset_labels
+
+    def _draw_points_with_labels(self,
+                                 asset_labels: List[str],
+                                 risks: List[float],
+                                 returns: List[float]
+                                 ):
+        for label, x, y in zip(asset_labels, risks, returns):
+            self.ax.annotate(
+                label,  # this is the text
+                (x, y),  # this is the point to label
+                textcoords="offset points",  # how to position the text
+                xytext=(0, 10),  # distance from text to points (x,y)
+                ha='center',  # horizontal alignment can be left, right or center
+            )
+
+    @staticmethod
+    def _pct_increase(val_list,
+                      increase_val):
+        for i, num in enumerate(val_list):
+            val_list[i] = val_list[i] * increase_val
+        return val_list
+
+    def plot_assets(self,
+                    data_source: Union[AssetList, EfficientFrontier],
+                    kind: str = 'mean',
+                    tickers: Union[str, list] = 'tickers',
+                    pct_values: bool = False
+                    ) -> plt.axes:
+
+        risks, returns = self._get_risk_return(data_source, kind)
+        if pct_values:
+            risks = self._pct_increase(risks, 100)
+            returns = self._pct_increase(returns, 100)
+        self.ax.scatter(risks, returns)
+        asset_labels = self._get_plot_lables(data_source, tickers)
+
+        # draw the points and print the labels
+        self._draw_points_with_labels(asset_labels, risks, returns)
+        return self.ax
+
+   def plot_pair_ef(self,
+                    data_source: EfficientFrontier,
+                    kind: str = 'mean',
+                    tickers: Union[str, list] = 'tickers',
+                    pct_values: bool = False,
+                    bounds=None) -> plt.axes:
+        """
+        Plots efficient frontier of every pair of assets in a set.
+        tickers:
+        - 'tickers' - shows tickers values (default)
+        - 'names' - shows assets names from database
+        - list of string labels
+        """
+        # if len(self.symbols) < 3:
+        #     raise ValueError('The number of symbols cannot be less than 3')
+        # self._verify_axes()
+        for i in itertools.combinations(data_source.symbols, 2):
+            sym_pair = list(i)
+            index0 = data_source.symbols.index(sym_pair[0])
+            index1 = data_source.symbols.index(sym_pair[1])
+            if bounds:
+                bounds_pair = (bounds[index0], bounds[index1])
+            else:
+                bounds_pair = None
+            ef = EfficientFrontier(symbols=sym_pair,
+                                   ccy=self.currency.currency,
+                                   first_date=self.first_date,
+                                   last_date=self.last_date,
+                                   inflation=self._bool_inflation,
+                                   full_frontier=True,
+                                   bounds=bounds_pair).ef_points
+            self.ax.plot(ef['Risk'], ef['Mean return'])
+        self.plot_assets(kind='mean', tickers=tickers)
+        return self.ax
+
+
 class Plots(AssetList):
     """
     Several tools to plot Efficient Frontier, Assets and Transition map.
     """
+
     def __init__(self,
                  symbols: List[str] = [default_ticker],
                  first_date: Optional[str] = None,

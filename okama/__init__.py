@@ -25,7 +25,7 @@ from okama.portfolio import Portfolio
 from okama.macro import Inflation, Rate
 from okama.frontier.multi_period import EfficientFrontierReb
 from okama.frontier.single_period import EfficientFrontier
-from okama.plots import Plots
+from okama.plots import Plots, AssetPlot
 from okama.api.data_queries import QueryData
 from okama.api.search import search
 from okama.api.api_methods import API
